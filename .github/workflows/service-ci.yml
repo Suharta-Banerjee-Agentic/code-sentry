@@ -32,15 +32,52 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      # TEMPORARY DEBUG STEP
+      # TEMPORARY: Debug GitHub OIDC claims
       - name: Debug GitHub OIDC claims
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
         run: |
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Ref: $GITHUB_REF"
-          echo "Branch: $GITHUB_REF_NAME"
-          echo "Event: $GITHUB_EVENT_NAME"
-          echo "Workflow: $GITHUB_WORKFLOW"
-          echo "Workflow Ref: $GITHUB_WORKFLOW_REF"
+          python - <<'PY'
+          import os
+          import json
+          import base64
+          import urllib.request
+
+          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
+          token = os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
+
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "Authorization": f"bearer {token}"
+              }
+          )
+
+          with urllib.request.urlopen(request) as response:
+              data = json.load(response)
+
+          jwt = data["value"]
+
+          # Decode only the JWT payload.
+          # The actual OIDC token is never printed.
+          payload = jwt.split(".")[1]
+          payload += "=" * (-len(payload) % 4)
+
+          claims = json.loads(
+              base64.urlsafe_b64decode(payload).decode("utf-8")
+          )
+
+          print("===== GitHub OIDC Claims =====")
+          print("iss:", claims.get("iss"))
+          print("aud:", claims.get("aud"))
+          print("sub:", claims.get("sub"))
+          print("repository:", claims.get("repository"))
+          print("repository_owner:", claims.get("repository_owner"))
+          print("ref:", claims.get("ref"))
+          print("event_name:", claims.get("event_name"))
+          print("job_workflow_ref:", claims.get("job_workflow_ref"))
+          print("==============================")
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:

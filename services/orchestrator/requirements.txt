@@ -10,4 +10,4 @@ langfuse
 openai
 PyJWT
 cryptography
-promethus-fastapi-instrumentator
+prometheus-fastapi-instrumentator

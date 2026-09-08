@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Kubernetes secrets
+infra/k8s/secret.yaml

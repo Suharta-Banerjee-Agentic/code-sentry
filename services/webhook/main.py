@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from models import PullRequest, Settings

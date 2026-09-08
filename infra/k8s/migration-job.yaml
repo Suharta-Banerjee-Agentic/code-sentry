@@ -10,8 +10,8 @@ spec:
       containers:
         - name: migrate
           image: 257656107861.dkr.ecr.us-east-1.amazonaws.com/webhook:latest
-          workingDir: /db
-          command: ["alembic", "-c", "/db/alembic.ini", "upgrade", "head"]
+          workingDir: /database
+          command: ["alembic", "-c", "/database/alembic.ini", "upgrade", "head"]
           env:
             - name: DATABASE_URL
               valueFrom:

@@ -32,6 +32,16 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
+      # TEMPORARY DEBUG STEP
+      - name: Debug GitHub OIDC claims
+        run: |
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Ref: $GITHUB_REF"
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "Event: $GITHUB_EVENT_NAME"
+          echo "Workflow: $GITHUB_WORKFLOW"
+          echo "Workflow Ref: $GITHUB_WORKFLOW_REF"
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}

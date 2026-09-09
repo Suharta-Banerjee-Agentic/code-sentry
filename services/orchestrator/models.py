@@ -23,7 +23,7 @@ class PullRequest(Base):
 
 
 class Finding(Base):
-    __tablename__ = "findings"
+    __tablename__ = "pull_request_findings"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     pr_id = Column(UUID(as_uuid=True), ForeignKey(
@@ -37,7 +37,7 @@ class Finding(Base):
 
 
 class Pattern(Base):
-    __tablename__ = "patterns"
+    __tablename__ = "pull_request_patterns"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     repo_full_name = Column(Text, nullable=False)

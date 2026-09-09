@@ -7,12 +7,50 @@ from langfuse.openai import OpenAI
 from langgraph.graph import StateGraph, END
 from langgraph.constants import Send
 
-client = OpenAI()
+client = OpenAI(base_url="https://api.groq.com/openai/v1")
+
+# PROMPTS = {
+#     "static_analysis": "You are a static analysis tool. Review this git diff for code complexity issues, unused variables, and poor naming. Return only a JSON array. Each item must have keys: file, line, severity (info/warning/error), message.",
+#     "security": "You are a security scanner. Review this git diff for OWASP Top 10 vulnerabilities, hardcoded secrets, and SQL injection risks. Return only a JSON array. Each item must have keys: file, line, severity, message.",
+#     "architecture": "You are an architecture reviewer. Review this git diff for separation of concerns violations, missing error handling, and improper dependency usage. Return only a JSON array. Each item must have keys: file, line, severity, message.",
+# }
 
 PROMPTS = {
-    "static_analysis": "You are a static analysis tool. Review this git diff for code complexity issues, unused variables, and poor naming. Return only a JSON array. Each item must have keys: file, line, severity (info/warning/error), message.",
-    "security": "You are a security scanner. Review this git diff for OWASP Top 10 vulnerabilities, hardcoded secrets, and SQL injection risks. Return only a JSON array. Each item must have keys: file, line, severity, message.",
-    "architecture": "You are an architecture reviewer. Review this git diff for separation of concerns violations, missing error handling, and improper dependency usage. Return only a JSON array. Each item must have keys: file, line, severity, message.",
+    "static_analysis": (
+        "You are a static analysis tool. Review this git diff for code complexity "
+        "(deeply nested logic, long functions, high cyclomatic complexity), unused "
+        "variables or imports, and poor naming (unclear, misleading, or inconsistent "
+        "identifiers). Only flag issues introduced or touched by this diff — do not "
+        "comment on unchanged code.\n\n"
+        "Respond with ONLY a JSON array, no markdown fences, no commentary. "
+        "If there are no issues, return an empty array: []. "
+        "Each item must be an object with exactly these keys: "
+        '"file" (string), "line" (integer), "severity" (one of "info", "warning", "error"), '
+        '"message" (string, one sentence, specific and actionable).'
+    ),
+    "security": (
+        "You are a security scanner. Review this git diff for OWASP Top 10 "
+        "vulnerabilities (e.g. injection, broken access control, cryptographic "
+        "failures), hardcoded secrets or credentials, SQL injection risks, and unsafe "
+        "deserialization or input handling. Only flag issues introduced or touched by "
+        "this diff.\n\n"
+        "Respond with ONLY a JSON array, no markdown fences, no commentary. "
+        "If there are no issues, return an empty array: []. "
+        "Each item must be an object with exactly these keys: "
+        '"file" (string), "line" (integer), "severity" (one of "info", "warning", "error"), '
+        '"message" (string, one sentence, specific and actionable).'
+    ),
+    "architecture": (
+        "You are an architecture reviewer. Review this git diff for separation of "
+        "concerns violations, missing or swallowed error handling, improper dependency "
+        "usage (e.g. tight coupling, circular imports, layering violations), and "
+        "leaky abstractions. Only flag issues introduced or touched by this diff.\n\n"
+        "Respond with ONLY a JSON array, no markdown fences, no commentary. "
+        "If there are no issues, return an empty array: []. "
+        "Each item must be an object with exactly these keys: "
+        '"file" (string), "line" (integer), "severity" (one of "info", "warning", "error"), '
+        '"message" (string, one sentence, specific and actionable).'
+    ),
 }
 
 
@@ -37,7 +75,7 @@ def make_node(agent_name: str, get_prompt):
     def node(state: GraphState) -> dict:
         prompt = get_prompt(state) if callable(get_prompt) else get_prompt
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="openai/gpt-oss-120b",
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": state["diff"]},
@@ -50,10 +88,30 @@ def make_node(agent_name: str, get_prompt):
     return node
 
 
+# def _style_prompt(state: GraphState) -> str:
+#     patterns_str = "\n".join(
+#         state["patterns"]) if state["patterns"] else "None"
+#     return f"You are a code style reviewer. Review this git diff for formatting, readability, and consistency issues. Common patterns this team has had before: {patterns_str}. Return only a JSON array. Each item must have keys: file, line, severity, message."
+
 def _style_prompt(state: GraphState) -> str:
     patterns_str = "\n".join(
-        state["patterns"]) if state["patterns"] else "None"
-    return f"You are a code style reviewer. Review this git diff for formatting, readability, and consistency issues. Common patterns this team has had before: {patterns_str}. Return only a JSON array. Each item must have keys: file, line, severity, message."
+        f"- {p}" for p in state["patterns"]) if state["patterns"] else "None recorded yet."
+    return (
+        "You are a code style reviewer. Review this git diff for formatting, "
+        "readability, and consistency issues (inconsistent naming conventions, "
+        "line length, whitespace, import ordering, and violations of the "
+        "codebase's existing style patterns). Only flag issues introduced or "
+        "touched by this diff — do not comment on unchanged code.\n\n"
+        f"Common patterns this team has flagged before:\n{patterns_str}\n\n"
+        "Weigh these recurring patterns more heavily than generic style nits — "
+        "if this diff repeats one of them, treat it as at least a \"warning\" "
+        "severity issue rather than \"info\".\n\n"
+        "Respond with ONLY a JSON array, no markdown fences, no commentary. "
+        "If there are no issues, return an empty array: []. "
+        "Each item must be an object with exactly these keys: "
+        '"file" (string), "line" (integer), "severity" (one of "info", "warning", "error"), '
+        '"message" (string, one sentence, specific and actionable).'
+    )
 
 
 def merge_node(state: GraphState) -> dict:

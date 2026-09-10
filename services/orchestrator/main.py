@@ -39,9 +39,14 @@ async def analyze(request: AnalyzeRequest):
         )
         patterns = [row.pattern_text for row in result.scalars().all()]
 
-    state = build_graph().invoke(
-        {"diff": diff, "patterns": patterns, "findings": []})
-    findings_data = state.get("findings", [])
+    state = build_graph().invoke({
+        "diff": diff,
+        "patterns": patterns,
+        "findings": [],
+        "merged_findings": [],
+    })
+
+    findings_data = state.get("merged_findings", [])
 
     async with AsyncSessionLocal() as session:
         for f in findings_data:
@@ -56,7 +61,7 @@ async def analyze(request: AnalyzeRequest):
         await session.commit()
 
     async with httpx.AsyncClient() as client:
-        await client.post(
+        response = await client.post(
             "http://reviewer:8003/post-review",
             json={
                 "pr_id": str(request.pr_id),
@@ -67,6 +72,7 @@ async def analyze(request: AnalyzeRequest):
             },
             timeout=60,
         )
+        response.raise_for_status()
 
     return {"status": "accepted"}
 

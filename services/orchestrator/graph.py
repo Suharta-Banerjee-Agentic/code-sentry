@@ -9,11 +9,6 @@ from langgraph.constants import Send
 
 client = OpenAI(base_url="https://api.groq.com/openai/v1")
 
-# PROMPTS = {
-#     "static_analysis": "You are a static analysis tool. Review this git diff for code complexity issues, unused variables, and poor naming. Return only a JSON array. Each item must have keys: file, line, severity (info/warning/error), message.",
-#     "security": "You are a security scanner. Review this git diff for OWASP Top 10 vulnerabilities, hardcoded secrets, and SQL injection risks. Return only a JSON array. Each item must have keys: file, line, severity, message.",
-#     "architecture": "You are an architecture reviewer. Review this git diff for separation of concerns violations, missing error handling, and improper dependency usage. Return only a JSON array. Each item must have keys: file, line, severity, message.",
-# }
 
 PROMPTS = {
     "static_analysis": (
@@ -69,6 +64,7 @@ class GraphState(TypedDict):
     diff: str
     patterns: list[str]
     findings: Annotated[list[dict], operator.add]
+    merged_findings: list[dict]
 
 
 def make_node(agent_name: str, get_prompt):
@@ -87,11 +83,6 @@ def make_node(agent_name: str, get_prompt):
         return {"findings": items}
     return node
 
-
-# def _style_prompt(state: GraphState) -> str:
-#     patterns_str = "\n".join(
-#         state["patterns"]) if state["patterns"] else "None"
-#     return f"You are a code style reviewer. Review this git diff for formatting, readability, and consistency issues. Common patterns this team has had before: {patterns_str}. Return only a JSON array. Each item must have keys: file, line, severity, message."
 
 def _style_prompt(state: GraphState) -> str:
     patterns_str = "\n".join(
@@ -117,13 +108,23 @@ def _style_prompt(state: GraphState) -> str:
 def merge_node(state: GraphState) -> dict:
     seen = set()
     merged = []
+
     for finding in state["findings"]:
-        key = (finding.get("file"), finding.get("line"),
-               finding.get("agent"), finding.get("message"))
+        key = (
+            finding.get("file"),
+            finding.get("line"),
+            finding.get("agent"),
+            finding.get("severity"),
+            finding.get("message"),
+        )
+
         if key not in seen:
             seen.add(key)
             merged.append(finding)
-    return {"findings": merged}
+
+    return {
+        "merged_findings": merged
+    }
 
 
 def fan_out(state: GraphState):
